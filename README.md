@@ -498,16 +498,55 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 
 # Install the stack
-pip install mem0ai chromadb zep-python letta
+pip install mem0ai chromadb httpx
 
-# Set up OpenAI key (for Mem0)
-export OPENAI_API_KEY="sk-your-key-here"
+# Run a search
+python unified/atlas_recall.py "What do I know about the user?"
 
-# Run the test
-python test/memory-stack-test.py
+# Index your memory files
+python unified/atlas_recall.py --index
 ```
 
 See [SETUP.md](SETUP.md) for the full guide with troubleshooting.
+
+## 🎯 Unified Recall System (NEW)
+
+The `unified/` folder contains the **production-ready** recall system that combines all backends:
+
+```bash
+# Search across all memory systems at once
+python unified/atlas_recall.py "What are the user's preferences?"
+
+# Index your markdown memory files
+python unified/atlas_recall.py --index
+
+# Add facts manually (Mem0 auto-extracts key info)
+python unified/atlas_recall.py --add "User prefers dark mode and hates meetings"
+
+# Check what's stored
+python unified/atlas_recall.py --stats
+```
+
+**What happens on search:**
+1. **Mem0** searches auto-extracted facts
+2. **ChromaDB** searches chunked documents (your .md files)
+3. **Letta** searches archival memory (if running)
+4. Results are combined, ranked, and deduplicated
+
+See [unified/README.md](unified/README.md) for full documentation.
+
+## Why These Four?
+
+We tested a lot of memory solutions. These survived the 3am gauntlet:
+
+| System | Superpower |
+|--------|-----------|
+| **Mem0** | Auto-extracts facts from prose — no manual tagging |
+| **ChromaDB** | Zero infrastructure, runs in-process, fast |
+| **Zep** | Temporal queries — "what did they say before X?" |
+| **Letta** | Self-editing hierarchical memory — agent maintains its own brain |
+
+Use one, use all, mix and match. Your agent, your rules.
 
 ---
 
@@ -515,9 +554,13 @@ See [SETUP.md](SETUP.md) for the full guide with troubleshooting.
 
 ```
 owl-brain/
-├── README.md           # You're here
-├── SETUP.md            # Detailed installation guide
-├── requirements.txt    # Python dependencies
+├── README.md               # You're here
+├── SETUP.md                # Detailed installation guide
+├── requirements.txt        # Python dependencies
+├── unified/                # 🎯 PRODUCTION SYSTEM
+│   ├── atlas_recall.py     # Full CLI for search, index, stats
+│   ├── recall              # Shell wrapper
+│   └── README.md           # Usage documentation
 ├── docs/
 │   └── TOOLS-snippet.md    # Copy-paste for your agent's TOOLS.md
 ├── examples/

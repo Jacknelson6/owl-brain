@@ -1,0 +1,7 @@
+#!/bin/bash
+# Quick wrapper for Atlas memory recall
+# Usage: ./recall "query here"
+
+cd ~/clawd
+source .venv-memory/bin/activate
+python3 scripts/atlas_recall.py "$@"

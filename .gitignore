@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.venv-memory/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Memory storage (don't commit user data)
+chroma_db/
+*.db
+*.sqlite
+test_memories/
+demo_memory/
+letta_data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Env files
+.env
+.env.local
+*.env
+
+# Config with secrets
+config.json
+api_key

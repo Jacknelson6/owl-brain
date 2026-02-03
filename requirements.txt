@@ -1,0 +1,7 @@
+# owl-brain memory stack
+# Install: pip install -r requirements.txt
+
+mem0ai>=0.1.0
+chromadb>=0.4.0
+zep-python>=2.0.0
+letta>=0.4.0

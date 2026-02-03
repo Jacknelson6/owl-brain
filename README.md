@@ -6,6 +6,18 @@
 
 ---
 
+## 📖 Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [**SETUP.md**](SETUP.md) | Complete setup guide — install, configure, verify |
+| [**unified/README.md**](unified/README.md) | Production recall system documentation |
+| [**docs/MEM0.md**](docs/MEM0.md) | Mem0 deep dive — auto-extraction, configuration, API |
+| [**docs/CHROMADB.md**](docs/CHROMADB.md) | ChromaDB deep dive — chunking, indexing, querying |
+| [**docs/LETTA.md**](docs/LETTA.md) | Letta deep dive — hierarchical memory, Docker setup, API |
+
+---
+
 ## What is this?
 
 owl-brain is a curated memory stack that gives your OpenClaw agents **actual memory** — not just context stuffing, but real, persistent, intelligent recall.

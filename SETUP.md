@@ -1,199 +1,450 @@
-# Setup Guide
+# Complete Setup Guide
 
-Getting your memory stack running. Grab some coffee (or energy drink, no judgment).
+This guide walks you through setting up the entire owl-brain memory stack from scratch.
 
 ## Prerequisites
 
-- **Python 3.12+** (we like living on the edge)
-- **pip** (obviously)
-- **OpenAI API key** (for Mem0's embeddings)
+- **Python 3.12+** (3.10+ works, 3.12 recommended)
+- **Docker** (for Letta)
+- **OpenAI API key** (for Mem0 and Letta)
+- **~500MB disk space** for dependencies and data
 
-## Step 1: Create Your Environment
+## Quick Start (5 minutes)
+
+If you just want to get running fast:
 
 ```bash
-# Navigate to where you want the memory stack
-cd ~/your-agent-workspace
+# Clone and setup
+git clone https://github.com/Jacknelson6/owl-brain.git
+cd owl-brain
+python3 -m venv .venv
+source .venv/bin/activate
+pip install mem0ai chromadb httpx
 
-# Create a dedicated venv (keeps things clean)
-python3.12 -m venv .venv-memory
+# Set your API key
+export OPENAI_API_KEY="sk-your-key-here"
 
-# Activate it
-source .venv-memory/bin/activate
-
-# Verify Python version
-python --version  # Should show 3.12.x
+# Test it
+python unified/atlas_recall.py --stats
 ```
 
-## Step 2: Install the Stack
+That's the minimum. Read on for the full setup.
+
+---
+
+## Step 1: Clone the Repository
 
 ```bash
-# All four packages
-pip install mem0ai chromadb zep-python letta
+git clone https://github.com/Jacknelson6/owl-brain.git
+cd owl-brain
+```
 
-# Or install from requirements.txt
+## Step 2: Create Python Virtual Environment
+
+```bash
+# Create venv
+python3.12 -m venv .venv
+
+# Activate it
+source .venv/bin/activate  # Linux/Mac
+# or
+.venv\Scripts\activate     # Windows
+```
+
+Your prompt should now show `(.venv)`.
+
+## Step 3: Install Dependencies
+
+### Minimal (Mem0 + ChromaDB only)
+
+```bash
+pip install mem0ai chromadb httpx
+```
+
+This gives you:
+- ✅ Mem0 (auto-extraction)
+- ✅ ChromaDB (vector search)
+- ❌ Letta (requires Docker)
+- ❌ Zep (requires server)
+
+### Full Stack
+
+```bash
+pip install mem0ai chromadb httpx zep-python letta
+```
+
+### From requirements.txt
+
+```bash
 pip install -r requirements.txt
 ```
 
-### Package Breakdown
+## Step 4: Configure OpenAI API Key
 
-| Package | Size | Dependencies |
-|---------|------|--------------|
-| mem0ai | ~2MB | openai, chromadb |
-| chromadb | ~50MB | numpy, onnxruntime |
-| zep-python | ~1MB | httpx, pydantic |
-| letta | ~10MB | openai, chromadb, uvicorn |
+Mem0 and Letta need an OpenAI key for embeddings and LLM calls.
 
-## Step 3: Configure API Keys
-
-### OpenAI (Required for Mem0)
-
-Mem0 uses OpenAI for embeddings. Set your key:
+### Option A: Environment Variable
 
 ```bash
-# Option A: Environment variable
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-your-key-here"
+```
 
-# Option B: Create a config file (recommended for persistence)
+Add to your shell profile (`~/.bashrc`, `~/.zshrc`) to persist:
+
+```bash
+echo 'export OPENAI_API_KEY="sk-your-key-here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Option B: Config File
+
+```bash
 mkdir -p ~/.config/openai
 echo "sk-your-key-here" > ~/.config/openai/api_key
 chmod 600 ~/.config/openai/api_key
 ```
 
-The test script checks both locations.
+The scripts will automatically read from this location.
 
-### Zep (Optional)
+### Verify
 
-Zep has two modes:
-
-**Zep Cloud (Easy)**
-1. Sign up at [getzep.com](https://www.getzep.com/)
-2. Get your project API key
-3. Set it:
 ```bash
-export ZEP_API_KEY="z_..."
+python -c "import os; print('Key set!' if os.getenv('OPENAI_API_KEY') or open(os.path.expanduser('~/.config/openai/api_key')).read().strip() else 'No key found')"
 ```
 
-**Self-Hosted (Full Control)**
+## Step 5: Set Up Letta (Optional but Recommended)
+
+Letta provides hierarchical memory and runs as a Docker service.
+
+### Install Docker
+
+- **Mac**: `brew install --cask docker` or [Docker Desktop](https://docker.com/products/docker-desktop)
+- **Linux**: `sudo apt install docker.io docker-compose`
+- **Windows**: [Docker Desktop](https://docker.com/products/docker-desktop)
+
+### Start Letta
+
 ```bash
-# Docker compose (recommended)
-git clone https://github.com/getzep/zep.git
-cd zep
+# Navigate to letta config
+cd owl-brain  # or wherever you cloned
+
+# Create the docker-compose file if it doesn't exist
+mkdir -p letta-docker
+cat > letta-docker/docker-compose.yml << 'EOF'
+services:
+  letta-server:
+    image: letta/letta:latest
+    container_name: letta-server
+    ports:
+      - "8283:8283"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - letta-data:/root/.letta
+    depends_on:
+      - letta-db
+    restart: unless-stopped
+
+  letta-db:
+    image: postgres:15
+    container_name: letta-db
+    environment:
+      - POSTGRES_USER=letta
+      - POSTGRES_PASSWORD=letta
+      - POSTGRES_DB=letta
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  letta-data:
+  postgres-data:
+EOF
+
+# Start it
+cd letta-docker
 docker compose up -d
 
-# Server runs at http://localhost:8000
-export ZEP_API_URL="http://localhost:8000"
+# Verify
+curl http://localhost:8283/v1/health/
+# Should return: {"version":"0.x.x","status":"ok"}
 ```
 
-### Letta (Optional but Cool)
-
-Letta runs as a local server with a web UI:
+### Check Letta Status
 
 ```bash
-# Start the server
-letta server
-
-# Web UI available at http://localhost:8283
-# API at http://localhost:8283/api
+docker ps | grep letta
+# Should show letta-server and letta-db running
 ```
 
-First run will prompt for OpenAI key configuration.
+### View Letta Logs
 
-### ChromaDB (No Config Needed)
+```bash
+docker logs letta-server -f
+```
 
-ChromaDB runs locally with zero config. It just works:
+### Stop Letta
+
+```bash
+cd letta-docker
+docker compose down
+```
+
+### Letta Web UI
+
+Once running, visit: http://localhost:8283
+
+## Step 6: Configure Storage Paths
+
+The unified recall system stores data in `~/.atlas/`:
+
+```
+~/.atlas/
+├── chroma/           # ChromaDB document chunks
+├── mem0_chroma/      # Mem0 extracted facts  
+└── index_state.json  # Tracks indexed files
+```
+
+These are created automatically on first run.
+
+### Custom Paths
+
+Edit `unified/atlas_recall.py` to change paths:
 
 ```python
-import chromadb
-client = chromadb.Client()  # In-memory
-# or
-client = chromadb.PersistentClient(path="./chroma_db")  # Persistent
+# Near the top of the file
+CLAWD_DIR = Path.home() / "clawd"           # Your workspace
+MEMORY_DIR = CLAWD_DIR / "memory"           # Daily memory files
+MEMORY_FILE = CLAWD_DIR / "MEMORY.md"       # Main memory file
+CHROMA_DIR = Path.home() / ".atlas" / "chroma"  # ChromaDB storage
 ```
 
-## Step 4: Verify Installation
+## Step 7: Create Your Memory Files
 
-Run the test script:
+The system indexes markdown files. Create the structure:
 
 ```bash
-python test/memory-stack-test.py
+mkdir -p ~/clawd/memory
+
+# Create main memory file
+cat > ~/clawd/MEMORY.md << 'EOF'
+# MEMORY.md - Long-Term Memory
+
+## Key Facts
+- Your name and basic info here
+- Important preferences
+- Key projects
+
+## Preferences
+- Communication style notes
+- Tool preferences
+- Working hours
+
+## Projects
+- Active project 1
+- Active project 2
+EOF
+
+# Create a daily memory file
+cat > ~/clawd/memory/$(date +%Y-%m-%d).md << 'EOF'
+# $(date +%Y-%m-%d)
+
+## Today
+- What happened today
+- Decisions made
+- Things learned
+EOF
 ```
 
-Expected output:
+## Step 8: Index Your Memory Files
 
-```
-==================================================
-🚀 Advanced Memory Stack Test
-==================================================
-
-🔷 Testing ChromaDB...
-  ✅ ChromaDB working! Query returned 2 results
-
-🧠 Testing Mem0...
-  ✅ Mem0 initialized (OpenAI embeddings ready)
-
-⏱️ Testing Zep...
-  ✅ Zep client imported
-  ℹ️ Zep requires either:
-     - Zep Cloud account (https://www.getzep.com/)
-     - Self-hosted Zep server
-
-📚 Testing Letta...
-  ✅ Letta client imported
-  ℹ️ To start Letta server: letta server
-     Web UI at http://localhost:8283
-
-==================================================
-📊 Results Summary
-==================================================
-  ✅ ChromaDB
-  ✅ Mem0
-  ✅ Zep
-  ✅ Letta
-```
-
-## Troubleshooting
-
-### "OPENAI_API_KEY not found"
-- Check env variable: `echo $OPENAI_API_KEY`
-- Check config file: `cat ~/.config/openai/api_key`
-- Make sure key starts with `sk-`
-
-### ChromaDB import errors
 ```bash
-# Sometimes needs explicit sqlite
-pip install pysqlite3-binary
+cd owl-brain
+source .venv/bin/activate
+
+# Index all memory files
+python unified/atlas_recall.py --index
+
+# Output:
+# 🧠 Initializing Atlas Memory Stack...
+#   ✅ Letta connected
+#   ✅ Ready!
+# 📚 Indexing all memory files...
+#   📄 MEMORY.md: 5 chunks
+#   📄 2024-01-15.md: 3 chunks
+# ✅ Indexed 2 files, 8 chunks
 ```
 
-### Letta won't start
+## Step 9: Test the System
+
+### Check Stats
+
 ```bash
-# Check port isn't in use
-lsof -i :8283
+python unified/atlas_recall.py --stats
 
-# Try different port
-letta server --port 8284
+# Output:
+# 📊 Atlas Memory Stats
+#   ChromaDB documents: 8
+#   Mem0 memories: 0
+#   Letta available: True
+#   Last full index: 2024-01-15T10:30:00
 ```
 
-### Zep connection refused
-- Cloud: Check API key format (`z_...`)
-- Self-hosted: Ensure Docker containers are running
+### Run a Search
 
-## Directory Structure
+```bash
+python unified/atlas_recall.py "What are my preferences?"
 
-After setup, your memory stack lives cleanly:
-
-```
-your-agent-workspace/
-├── .venv-memory/          # Virtual environment
-├── chroma_db/             # ChromaDB persistent storage (if used)
-├── letta_data/            # Letta state (if used)
-└── memory/                # Your agent's memory files
+# Output:
+# 🔍 Query: What are my preferences?
+# 📝 Found 3 results:
+# 
+# [1] chroma:MEMORY.md (score: 0.85)
+#     Section: MEMORY.md > Preferences
+#     - Communication style notes...
 ```
 
-## Next Steps
+### Add a Fact
 
-- Check [examples/](examples/) for integration patterns
-- Add the [TOOLS.md snippet](docs/TOOLS-snippet.md) to your agent
-- Start building memory into your workflows
+```bash
+python unified/atlas_recall.py --add "I prefer dark mode for all applications"
+
+# Output:
+# ✅ Added to Mem0: {'results': [{'memory': 'Prefers dark mode for all applications', ...}]}
+```
+
+## Step 10: Set Up Daily Indexing (Optional)
+
+Keep memory fresh with a cron job:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line (indexes at midnight daily)
+0 0 * * * cd /path/to/owl-brain && /path/to/.venv/bin/python unified/atlas_recall.py --index >> /var/log/atlas-index.log 2>&1
+```
 
 ---
 
-*Setup complete? You're ready to give your agent a brain.* 🦉
+## Verification Checklist
+
+Run through this to confirm everything works:
+
+```bash
+# 1. Python environment
+source .venv/bin/activate
+python --version  # Should be 3.10+
+
+# 2. Dependencies
+python -c "import mem0; import chromadb; import httpx; print('✅ Core deps OK')"
+
+# 3. OpenAI key
+python -c "import os; assert os.getenv('OPENAI_API_KEY') or open(os.path.expanduser('~/.config/openai/api_key')).read().strip(); print('✅ OpenAI key OK')"
+
+# 4. Letta (if using)
+curl -s http://localhost:8283/v1/health/ | grep -q "ok" && echo "✅ Letta OK" || echo "❌ Letta not running"
+
+# 5. Storage directories
+ls -la ~/.atlas/ && echo "✅ Storage OK"
+
+# 6. Full test
+python unified/atlas_recall.py --stats && echo "✅ Full system OK"
+```
+
+---
+
+## Troubleshooting
+
+### "ModuleNotFoundError: No module named 'mem0'"
+
+```bash
+source .venv/bin/activate  # Make sure venv is active
+pip install mem0ai
+```
+
+### "OPENAI_API_KEY not found"
+
+```bash
+export OPENAI_API_KEY="sk-..."
+# Or create ~/.config/openai/api_key
+```
+
+### "Letta not available"
+
+```bash
+# Check if Docker is running
+docker ps
+
+# Start Letta
+cd letta-docker && docker compose up -d
+
+# Check logs for errors
+docker logs letta-server
+```
+
+### "ChromaDB: instance already exists"
+
+Only one process can access ChromaDB at a time. Kill other Python processes:
+
+```bash
+pkill -f atlas_recall
+```
+
+### "Connection refused on localhost:8283"
+
+Letta server isn't running:
+
+```bash
+cd letta-docker
+docker compose up -d
+docker logs letta-server  # Check for errors
+```
+
+### Slow indexing
+
+First run downloads embedding models. Subsequent runs are faster. 
+
+For very large files, increase chunk size:
+
+```python
+# In atlas_recall.py, change:
+chunks = chunk_markdown(content, chunk_size=2000)  # Larger chunks
+```
+
+---
+
+## Next Steps
+
+1. **Read the individual guides:**
+   - [Mem0 Deep Dive](docs/MEM0.md)
+   - [ChromaDB Deep Dive](docs/CHROMADB.md)
+   - [Letta Deep Dive](docs/LETTA.md)
+
+2. **Explore examples:**
+   - `examples/mem0-basic.py`
+   - `examples/chromadb-basic.py`
+   - `examples/letta-basic.py`
+   - `examples/openclaw-integration.py`
+
+3. **Integrate with your agent:**
+   - Copy [docs/TOOLS-snippet.md](docs/TOOLS-snippet.md) to your agent's TOOLS.md
+   - Use `unified/atlas_recall.py` as your recall system
+
+---
+
+## Uninstall
+
+If you need to remove everything:
+
+```bash
+# Stop Letta
+cd letta-docker && docker compose down -v
+
+# Remove data
+rm -rf ~/.atlas
+rm -rf ~/.mem0
+
+# Remove venv
+rm -rf .venv
+```
